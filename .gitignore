@@ -1,2 +1,5 @@
 # exclude config.py
 config.py
+
+#exclude ./env folder
+/env
