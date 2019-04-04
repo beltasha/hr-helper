@@ -2,6 +2,7 @@ import csv
 import requests
 import time
 import config
+from urllib.parse import urlparse
 
 authorization_token = "Bearer {0}".format(config.TOKEN)
 headers = {"Authorization": authorization_token}
@@ -23,6 +24,7 @@ def get_query(login, repositories_count, pull_rquest_count, commit_count):
               description,
               pullRequests (last: $pull_rquest_count) {
                 nodes {
+                  url
                   commits (last: $commit_count) {
                     nodes {
                       commit {
@@ -50,9 +52,34 @@ def get_query(login, repositories_count, pull_rquest_count, commit_count):
 
 
 def main():
-  query, variables = get_query("domi7777", 10, 5, 10)
-  statuses = run_query(query, variables)
-  print(statuses)
+  query, variables = get_query("domi7777", 10, 10, 10)
+  
+  result = run_query(query, variables)
+  row_info = {
+    'login': "domi7777",
+    'repo': None,
+    'pullRequest': None,
+    'commit': None,
+    'status': None,
+  }
+  rows = []
+  repositories = result['data']['repositoryOwner']['repositories']['nodes']
+  for repository in repositories:
+    row_info['repo'] = repository['name']
+    pullRequests = repository['pullRequests']['nodes']
+    for pullRequest in pullRequests:
+      row_info['pullRequest'] = pullRequest['url'].split('/')[-1]
+      commits = pullRequest['commits']['nodes']
+      for commit in commits:
+        row_info['commit'] = commit['commit']['commitUrl'].split('/')[-1]
+        
+        if (commit['commit']['status'] != None):
+          row_info['status'] = commit['commit']['status']['state']
+          rows.append(row_info) # change to writing into file
+        else:
+          print('statuse is None!')
+
+  print(rows)
 
 main()
 
