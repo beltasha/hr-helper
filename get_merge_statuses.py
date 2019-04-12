@@ -50,36 +50,51 @@ def get_query(login, repositories_count, pull_rquest_count, commit_count):
 
   return query, variables
 
-
-def main():
-  query, variables = get_query("domi7777", 10, 10, 10)
-  
-  result = run_query(query, variables)
+def calculate_row(login, repositories_count, pull_rquest_count, commit_count):
+  query, variables = get_query(login, repositories_count, pull_rquest_count, commit_count)
   row_info = {
-    'login': "domi7777",
+    'login': login,
     'repo': None,
     'pullRequest': None,
     'commit': None,
     'status': None,
   }
-  rows = []
-  repositories = result['data']['repositoryOwner']['repositories']['nodes']
-  for repository in repositories:
-    row_info['repo'] = repository['name']
-    pullRequests = repository['pullRequests']['nodes']
-    for pullRequest in pullRequests:
-      row_info['pullRequest'] = pullRequest['url'].split('/')[-1]
-      commits = pullRequest['commits']['nodes']
-      for commit in commits:
-        row_info['commit'] = commit['commit']['commitUrl'].split('/')[-1]
-        
-        if (commit['commit']['status'] != None):
-          row_info['status'] = commit['commit']['status']['state']
-          rows.append(row_info) # change to writing into file
-        else:
-          print('statuse is None!')
+  result = run_query(query, variables)
+  try:
+    repositories = result['data']['repositoryOwner']['repositories']['nodes']
+    for repository in repositories:
+      row_info['repo'] = repository['name']
+      pullRequests = repository['pullRequests']['nodes']
+      for pullRequest in pullRequests:
+        row_info['pullRequest'] = pullRequest['url'].split('/')[-1]
+        commits = pullRequest['commits']['nodes']
+        for commit in commits:
+          row_info['commit'] = commit['commit']['commitUrl'].split('/')[-1]
+          
+          if (commit['commit']['status'] != None):
+            row_info['status'] = commit['commit']['status']['state']
+  except:
+    print('Something wrong with data!')
+    print(result)
 
-  print(rows)
+  return row_info
+
+
+def main():
+  repositories_count = 10
+  pull_rquest_count = 10
+  commit_count = 10
+  path = '../GitHubLogins.txt'
+  newFile = open('GH_statuses.txt', 'a+')
+  with open(path) as fp:  
+        login = fp.readline()
+        while login:
+          row = calculate_row(login, repositories_count, pull_rquest_count, commit_count)
+          
+          if (row['status'] != None):
+            newFile.write('{login}, {repo}, {pullRequest}, {commit}, {status} \n'.format(row))
+
+          login = fp.readline()
 
 main()
 
