@@ -149,16 +149,20 @@ def calculate_merge_status_data(login, contribution_pull_requests):
 
 def calculate(login, repositories_count, pull_request_count, commit_count):
   query, variables = get_query(login, repositories_count, pull_request_count, commit_count)
+  print(variables)
   result = run_query(query, variables)
-
+  merge_status_data = None
+  user_data = None
   try:
     contribution_pull_requests = result['data']['user']['contributionsCollection']['pullRequestContributions']['nodes']
     merge_status_data = calculate_merge_status_data(login, contribution_pull_requests)
     user_data = calculate_user_info(login, result['data']['user'])
   except SyntaxError as error:
     print(error)
+    return None
   except:
     print('Something wrong with data')
+    return None
 
   return { 'merge_status_data': merge_status_data, 'user_data': user_data }
 
@@ -173,9 +177,10 @@ def main():
   writer_merge_info = csv.DictWriter(csvfile_merge_stat, fieldnames=fieldnames_merge_stat)
   writer_merge_info.writeheader()
 
-  csvfile_stat = open('../datasets/GH_user_statistic.csv', 'a+', newline='')
+  csvfile_stat = open('../datasets/GH_user_statistic.csv', 'w', newline='')
   fieldnames_stat = [
     'login',
+    'SO_id',
     'followers_count',
     'following_count',
     'repositories_count', 
@@ -186,47 +191,48 @@ def main():
     'all_pr_count',
     'commit_count',
     'success_merge_status_num',
-    'fail_merge_status_num'
+    'fail_merge_status_num',
+    'SO_reputation'
   ]
   writer_stat = csv.DictWriter(csvfile_stat, fieldnames=fieldnames_stat)
   writer_stat.writeheader()
 
-  data = calculate('rexm', repositories_count, pull_request_count, commit_count)
-  merge_status_rows = data['merge_status_data']['rows_info']
-  user_statistic_info = data['user_data']
-  user_merge_status_info = data['merge_status_data']['merge_statistics']
-  # write merge_status_rows
-  try:
-    writer_merge_info.writerows(merge_status_rows)
-  except:
-    print('write rows to "GH_merge_stat.csv" error!')
+  # read GH_SO_users.csv
+  with open('../datasets/GH_SO_users.csv', 'r') as csvfile_GH_SO_users:
+    reader = csv.reader(csvfile_GH_SO_users)
+    for row in reader:
+      GH_login = row[0]
+      SO_id = row[1]
+      SO_reputation = row[2]
 
-  # write stat
-  try:
-    row = user_statistic_info
-    row['success_merge_status_num'] = user_merge_status_info['success_num']
-    row['fail_merge_status_num'] = user_merge_status_info['fail_num']
-    writer_stat.writerow(user_statistic_info)
-  except SyntaxError as error:
-    print(error)
-  except :
-    print('write row to "GH_stat" error!')
-  
-  # path = '../GitHubLogins.txt'
-  # newFile = open('GH_statuses.txt', 'a+')
+      data = calculate(GH_login, repositories_count, pull_request_count, commit_count)
+      if not data:
+        continue
 
-  # TODO: save mergeStatisitcInfo and calculate another user info, concatenate this data ad write to a file2
-  # TODO: add it for all githubIds
-  
-  # with open(path) as fp:  
-  #   login = fp.readline()
-  #   while login:
-  #     row = calculate_row(login, repositories_count, pull_request_count, commit_count)
-      
-  #     if (row['status'] != None):
-  #       newFile.write('{login}, {repo}, {pullRequest}, {commit}, {status} \n'.format(row))
+      merge_status_rows = data['merge_status_data']['rows_info']
+      user_statistic_info = data['user_data']
+      user_merge_status_info = data['merge_status_data']['merge_statistics']
+    
+      # write merge_status_rows
+      try:
+        writer_merge_info.writerows(merge_status_rows)
+      except:
+        print('write rows to "GH_merge_stat.csv" error!')
 
-  #     login = fp.readline()
+      # write stat
+      try:
+        row = user_statistic_info
+        row['success_merge_status_num'] = user_merge_status_info['success_num']
+        row['fail_merge_status_num'] = user_merge_status_info['fail_num']
+        row['SO_id'] = SO_id
+        row['SO_reputation'] = SO_reputation
+        writer_stat.writerow(user_statistic_info)
+      except SyntaxError as error:
+        print(error)
+      except :
+        print('write row to "GH_stat" error!')
+
+  csvfile_GH_SO_users.close()
 
 main()
 
